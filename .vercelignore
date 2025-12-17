@@ -1,0 +1,13 @@
+node_modules
+.env
+.env.local
+.env.development
+.env.test
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+.DS_Store
+*.log
+test-api.js
+test-login.js
+scripts/seed.js
