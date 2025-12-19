@@ -71,6 +71,129 @@ const loanSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  clientFatherOrSpouseName: {
+    type: String,
+  },
+  clientGender: {
+    type: String,
+  },
+  clientWorkingAddress: {
+    type: String,
+  },
+  clientPanNumber: {
+    type: String,
+  },
+  customerName: {
+    type: String,
+  },
+  customerPhone: {
+    type: String,
+  },
+  customerEmail: {
+    type: String,
+  },
+  customerAddress: {
+    type: String,
+  },
+  customerAadhaar: {
+    type: String,
+  },
+  customerPan: {
+    type: String,
+  },
+  customerPhoto: {
+    type: String,
+  },
+  aadhaarFrontImage: {
+    type: String,
+  },
+  aadhaarBackImage: {
+    type: String,
+  },
+  panFrontImage: {
+    type: String,
+  },
+  guarantorName: {
+    type: String,
+  },
+  guarantorPhone: {
+    type: String,
+  },
+  guarantorEmail: {
+    type: String,
+  },
+  guarantorAddress: {
+    type: String,
+  },
+  guarantorAadhaar: {
+    type: String,
+  },
+  guarantorRelationship: {
+    type: String,
+  },
+  guarantorGender: {
+    type: String,
+  },
+  guarantorWorkingAddress: {
+    type: String,
+  },
+  guarantorPhoto: {
+    type: String,
+  },
+  guarantorAadhaarImage: {
+    type: String,
+  },
+  referenceName: {
+    type: String,
+  },
+  referenceNumber: {
+    type: String,
+  },
+  productName: {
+    type: String,
+  },
+  productCategory: {
+    type: String,
+  },
+  productCompany: {
+    type: String,
+  },
+  productPrice: {
+    type: Number,
+  },
+  price: {
+    type: Number,
+  },
+  serialNumber: {
+    type: String,
+  },
+  productImage: {
+    type: String,
+  },
+  downPayment: {
+    type: Number,
+  },
+  fileCharge: {
+    type: Number,
+  },
+  bankName: {
+    type: String,
+  },
+  accountNumber: {
+    type: String,
+  },
+  ifscCode: {
+    type: String,
+  },
+  branchName: {
+    type: String,
+  },
+  paymentMode: {
+    type: String,
+  },
+  passbookImage: {
+    type: String,
+  },
   loanAmount: {
     type: Number,
     required: true,
@@ -182,6 +305,11 @@ const loanSchema = new mongoose.Schema({
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Customer',
+  },
+  applicationMode: {
+    type: String,
+    enum: ['self', 'max_born_group'],
+    default: 'max_born_group',
   },
 }, {
   timestamps: true,

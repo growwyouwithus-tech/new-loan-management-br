@@ -4,56 +4,152 @@ import Customer from '../models/Customer.js';
 
 export const createLoan = async (req, res) => {
   try {
+    console.log('Creating loan with data:', req.body);
+    console.log('User:', req.user);
+    
     const {
       clientName,
+      clientFatherOrSpouseName,
+      clientGender,
+      clientMobile,
       clientPhone,
-      clientAadharNumber,
+      clientWorkingAddress,
       clientAddress,
+      clientAadharNumber,
+      clientPanNumber,
+      guarantor,
+      productCategory,
+      productName,
+      productCompany,
+      price,
+      serialNumber,
+      downPayment,
       loanAmount,
       interestRate,
       tenure,
       emiAmount,
       emiStartDate,
+      fileCharge,
+      bankName,
+      accountNumber,
+      ifscCode,
+      paymentMode,
+      applicationMode,
       customerId,
     } = req.body;
 
-    const loanId = clientAadharNumber || `LN${Date.now().toString().slice(-6)}`;
-    const appliedDate = emiStartDate || new Date().toISOString().split('T')[0];
+    // Validate required fields
+    if (!clientName) {
+      return res.status(400).json({ message: 'Client name is required' });
+    }
+    if (!clientAadharNumber) {
+      return res.status(400).json({ message: 'Client Aadhar number is required' });
+    }
+    if (!clientMobile && !clientPhone) {
+      return res.status(400).json({ message: 'Client phone number is required' });
+    }
 
-    const loan = await Loan.create({
+    const loanId = `LN${Date.now().toString().slice(-8)}`;
+    const appliedDate = new Date().toISOString().split('T')[0];
+    const phone = clientMobile || clientPhone;
+    const address = typeof clientAddress === 'object' 
+      ? `${clientAddress.houseNo || ''}, ${clientAddress.galiNo || ''}, ${clientAddress.colony || ''}, ${clientAddress.city || ''}, ${clientAddress.state || ''} - ${clientAddress.pincode || ''}`
+      : clientAddress || 'N/A';
+
+    // Extract guarantor details
+    const guarantorData = guarantor || {};
+    const guarantorAddress = typeof guarantorData.address === 'object'
+      ? `${guarantorData.address.houseNo || ''}, ${guarantorData.address.galiNo || ''}, ${guarantorData.address.colony || ''}, ${guarantorData.address.city || ''}, ${guarantorData.address.state || ''} - ${guarantorData.address.pincode || ''}`
+      : guarantorData.address || '';
+
+    const loanData = {
       loanId,
       clientName,
-      clientPhone,
+      clientPhone: phone,
       clientAadharNumber,
-      clientAddress,
-      loanAmount,
-      interestRate,
-      tenure,
-      emiAmount,
+      clientAddress: address,
+      clientFatherOrSpouseName,
+      clientGender,
+      clientWorkingAddress,
+      clientPanNumber,
+      // Duplicate fields for compatibility with frontend display
+      customerName: clientName,
+      customerPhone: phone,
+      customerAddress: address,
+      customerAadhaar: clientAadharNumber,
+      customerPan: clientPanNumber,
+      // Guarantor details
+      guarantorName: guarantorData.name,
+      guarantorPhone: guarantorData.mobile,
+      guarantorAddress: guarantorAddress,
+      guarantorAadhaar: guarantorData.aadharNumber,
+      guarantorRelationship: guarantorData.relation,
+      guarantorGender: guarantorData.gender,
+      guarantorWorkingAddress: guarantorData.workingAddress,
+      referenceName: guarantorData.referenceName,
+      referenceNumber: guarantorData.referenceNumber,
+      // Product details
+      productName,
+      productCategory,
+      productCompany,
+      productPrice: price,
+      price,
+      serialNumber,
+      downPayment,
+      fileCharge,
+      // Bank details
+      bankName,
+      accountNumber,
+      ifscCode,
+      paymentMode,
+      // Financial details
+      loanAmount: loanAmount || (price - (downPayment || 0)),
+      interestRate: interestRate || 0.0375,
+      tenure: tenure || 12,
+      emiAmount: emiAmount || 0,
       appliedDate,
       emiStartDate: emiStartDate || appliedDate,
-      emisRemaining: tenure,
+      emisRemaining: tenure || 12,
       shopkeeperId: req.user._id,
       customerId,
-    });
+      status: 'Pending',
+      applicationMode: applicationMode || 'max_born_group',
+    };
 
-    await Notification.create({
-      type: 'new_loan_application',
-      title: 'New Loan Application',
-      message: `New loan application from ${clientName} (${loanId}) - Amount: ₹${loanAmount.toLocaleString()}`,
-      severity: 'medium',
-      targetRole: 'verifier',
-      loanId: loan.loanId,
-      clientName,
-      loanAmount,
-    });
+    console.log('Creating loan with validated data:', loanData);
+
+    const loan = await Loan.create(loanData);
+
+    console.log('Loan created successfully:', loan);
+
+    // Create notification
+    try {
+      await Notification.create({
+        type: 'new_loan_application',
+        title: 'New Loan Application',
+        message: `New loan application from ${clientName} (${loanId}) - Amount: ₹${(loanAmount || 0).toLocaleString()}`,
+        severity: 'medium',
+        targetRole: 'verifier',
+        loanId: loan.loanId,
+        clientName,
+        loanAmount: loanAmount || 0,
+      });
+    } catch (notifError) {
+      console.error('Failed to create notification:', notifError);
+      // Don't fail the loan creation if notification fails
+    }
 
     res.status(201).json({
       message: 'Loan application submitted successfully',
       loan,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error creating loan:', error);
+    res.status(500).json({ 
+      message: error.message,
+      error: error.toString(),
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 
