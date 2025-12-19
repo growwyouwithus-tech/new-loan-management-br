@@ -47,6 +47,22 @@ const seedUsers = async () => {
         phoneNumber: '9876543212',
       },
       {
+        username: 'supporter',
+        email: 'supporter@loanmanagement.com',
+        password: 'supporter123',
+        role: 'supporter',
+        fullName: 'Support Officer',
+        phoneNumber: '9876543215',
+      },
+      {
+        username: 'credit_manager',
+        email: 'creditmanager@loanmanagement.com',
+        password: 'credit123',
+        role: 'credit_manager',
+        fullName: 'Credit Manager',
+        phoneNumber: '9876543216',
+      },
+      {
         username: 'shopkeeper1',
         email: 'shopkeeper1@example.com',
         password: 'shop123',
@@ -64,7 +80,12 @@ const seedUsers = async () => {
       },
     ];
 
-    const createdUsers = await User.insertMany(users);
+    // Use create() instead of insertMany() to trigger pre-save hooks for password hashing
+    const createdUsers = [];
+    for (const userData of users) {
+      const user = await User.create(userData);
+      createdUsers.push(user);
+    }
     console.log('Users seeded successfully');
     return createdUsers;
   } catch (error) {
@@ -266,6 +287,8 @@ const seedDatabase = async () => {
     console.log('Admin: admin@loanmanagement.com / admin123');
     console.log('Verifier: verifier@loanmanagement.com / verifier123');
     console.log('Collections: collections@loanmanagement.com / collections123');
+    console.log('Supporter: supporter@loanmanagement.com / supporter123');
+    console.log('Credit Manager: creditmanager@loanmanagement.com / credit123');
     console.log('Shopkeeper 1: shopkeeper1@example.com / shop123');
     console.log('Shopkeeper 2: shopkeeper2@example.com / shop123');
     console.log('=================================\n');

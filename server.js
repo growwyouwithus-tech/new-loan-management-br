@@ -15,6 +15,7 @@ import shopkeeperRoutes from './routes/shopkeeperRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import offerRoutes from './routes/offerRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 
 dotenv.config();
 
@@ -54,6 +55,7 @@ app.get('/', (req, res) => {
       notifications: '/api/notifications',
       payments: '/api/payments',
       offers: '/api/offers',
+      users: '/api/users',
     },
   });
 });
@@ -65,6 +67,7 @@ app.use('/api/shopkeepers', shopkeeperRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/offers', offerRoutes);
+app.use('/api/users', userRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
