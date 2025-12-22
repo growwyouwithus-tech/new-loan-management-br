@@ -25,8 +25,12 @@ const connectDB = async () => {
     
   } catch (error) {
     console.error(`MongoDB Connection Error: ${error.message}`);
-    console.error('Please check your MONGODB_URI in .env file');
-    process.exit(1);
+    console.error('Please check your MONGODB_URI in environment variables');
+    // Don't exit in serverless environment
+    if (process.env.VERCEL !== '1') {
+      process.exit(1);
+    }
+    throw error;
   }
 };
 

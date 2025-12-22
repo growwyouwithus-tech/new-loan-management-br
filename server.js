@@ -22,7 +22,10 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-connectDB();
+// Connect to database (async, but don't block server startup in serverless)
+connectDB().catch(err => {
+  console.error('Failed to connect to MongoDB:', err.message);
+});
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -72,8 +75,11 @@ app.use('/api/users', userRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-});
+// Only start server if not in Vercel serverless environment
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  });
+}
 
 export default app;
