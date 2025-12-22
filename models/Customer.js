@@ -21,7 +21,6 @@ const customerSchema = new mongoose.Schema({
   aadharNumber: {
     type: String,
     required: true,
-    unique: true,
   },
   panNumber: {
     type: String,
@@ -85,7 +84,7 @@ const customerSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-customerSchema.index({ aadharNumber: 1 });
+customerSchema.index({ aadharNumber: 1 }, { unique: true });
 customerSchema.index({ phoneNumber: 1 });
 
 const Customer = mongoose.model('Customer', customerSchema);

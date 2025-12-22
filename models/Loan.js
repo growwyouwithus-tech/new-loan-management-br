@@ -53,7 +53,6 @@ const loanSchema = new mongoose.Schema({
   loanId: {
     type: String,
     required: true,
-    unique: true,
   },
   clientName: {
     type: String,
@@ -141,6 +140,15 @@ const loanSchema = new mongoose.Schema({
     type: String,
   },
   guarantorAadhaarImage: {
+    type: String,
+  },
+  guarantorAadhaarFrontImage: {
+    type: String,
+  },
+  guarantorAadhaarBackImage: {
+    type: String,
+  },
+  guarantorPanImage: {
     type: String,
   },
   referenceName: {
@@ -315,9 +323,10 @@ const loanSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-loanSchema.index({ loanId: 1 });
+loanSchema.index({ loanId: 1 }, { unique: true });
 loanSchema.index({ status: 1 });
 loanSchema.index({ clientAadharNumber: 1 });
+loanSchema.index({ shopkeeperId: 1 });
 
 const Loan = mongoose.model('Loan', loanSchema);
 

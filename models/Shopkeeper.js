@@ -4,7 +4,6 @@ const shopkeeperSchema = new mongoose.Schema({
   shopkeeperId: {
     type: String,
     required: true,
-    unique: true,
   },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -108,7 +107,7 @@ const shopkeeperSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-shopkeeperSchema.index({ shopkeeperId: 1 });
+shopkeeperSchema.index({ shopkeeperId: 1 }, { unique: true });
 shopkeeperSchema.index({ userId: 1 });
 
 const Shopkeeper = mongoose.model('Shopkeeper', shopkeeperSchema);

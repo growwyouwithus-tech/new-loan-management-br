@@ -1,6 +1,7 @@
 import Loan from '../models/Loan.js';
 import Notification from '../models/Notification.js';
 import Customer from '../models/Customer.js';
+import { saveBase64Image } from '../middleware/imageUpload.js';
 
 export const createLoan = async (req, res) => {
   try {
@@ -17,6 +18,10 @@ export const createLoan = async (req, res) => {
       clientAddress,
       clientAadharNumber,
       clientPanNumber,
+      clientPhoto,
+      clientAadharFront,
+      clientAadharBack,
+      clientPanFront,
       guarantor,
       productCategory,
       productName,
@@ -45,22 +50,51 @@ export const createLoan = async (req, res) => {
     if (!clientAadharNumber) {
       return res.status(400).json({ message: 'Client Aadhar number is required' });
     }
-    if (!clientMobile && !clientPhone) {
-      return res.status(400).json({ message: 'Client phone number is required' });
-    }
 
     const loanId = `LN${Date.now().toString().slice(-8)}`;
     const appliedDate = new Date().toISOString().split('T')[0];
-    const phone = clientMobile || clientPhone;
+    const phone = clientMobile || clientPhone || 'N/A';
     const address = typeof clientAddress === 'object' 
       ? `${clientAddress.houseNo || ''}, ${clientAddress.galiNo || ''}, ${clientAddress.colony || ''}, ${clientAddress.city || ''}, ${clientAddress.state || ''} - ${clientAddress.pincode || ''}`
       : clientAddress || 'N/A';
+
+    // Extract uploaded file paths from multer (if files uploaded via form-data)
+    const uploadedClientPhoto = req.files?.clientPhoto?.[0]?.path;
+    const uploadedClientAadharFront = req.files?.clientAadharFront?.[0]?.path;
+    const uploadedClientAadharBack = req.files?.clientAadharBack?.[0]?.path;
+    const uploadedClientPanFront = req.files?.clientPanFront?.[0]?.path;
+
+    // Process base64 images if present (from mobile app) or use uploaded file paths
+    const processedClientPhoto = uploadedClientPhoto || ((typeof clientPhoto === 'string' && clientPhoto?.startsWith('data:image')) ? saveBase64Image(clientPhoto, 'client-photo') : clientPhoto);
+    const processedClientAadharFront = uploadedClientAadharFront || ((typeof clientAadharFront === 'string' && clientAadharFront?.startsWith('data:image')) ? saveBase64Image(clientAadharFront, 'client-aadhar-front') : clientAadharFront);
+    const processedClientAadharBack = uploadedClientAadharBack || ((typeof clientAadharBack === 'string' && clientAadharBack?.startsWith('data:image')) ? saveBase64Image(clientAadharBack, 'client-aadhar-back') : clientAadharBack);
+    const processedClientPanFront = uploadedClientPanFront || ((typeof clientPanFront === 'string' && clientPanFront?.startsWith('data:image')) ? saveBase64Image(clientPanFront, 'client-pan-front') : clientPanFront);
 
     // Extract guarantor details
     const guarantorData = guarantor || {};
     const guarantorAddress = typeof guarantorData.address === 'object'
       ? `${guarantorData.address.houseNo || ''}, ${guarantorData.address.galiNo || ''}, ${guarantorData.address.colony || ''}, ${guarantorData.address.city || ''}, ${guarantorData.address.state || ''} - ${guarantorData.address.pincode || ''}`
       : guarantorData.address || '';
+    
+    // Extract uploaded guarantor file paths from multer
+    const uploadedGuarantorPhoto = req.files?.guarantorPhoto?.[0]?.path;
+    const uploadedGuarantorAadharFront = req.files?.guarantorAadharFront?.[0]?.path;
+    const uploadedGuarantorAadharBack = req.files?.guarantorAadharBack?.[0]?.path;
+    const uploadedGuarantorPanFront = req.files?.guarantorPanFront?.[0]?.path;
+
+    // Process guarantor images (uploaded files, base64, or convert empty objects to undefined)
+    const processedGuarantorPhoto = uploadedGuarantorPhoto || ((typeof guarantorData.photo === 'string' && guarantorData.photo?.startsWith('data:image')) 
+      ? saveBase64Image(guarantorData.photo, 'guarantor-photo') 
+      : (guarantorData.photo && typeof guarantorData.photo === 'object' && Object.keys(guarantorData.photo).length === 0) ? undefined : guarantorData.photo);
+    const processedGuarantorAadharFront = uploadedGuarantorAadharFront || ((typeof guarantorData.aadharFront === 'string' && guarantorData.aadharFront?.startsWith('data:image')) 
+      ? saveBase64Image(guarantorData.aadharFront, 'guarantor-aadhar-front') 
+      : (guarantorData.aadharFront && typeof guarantorData.aadharFront === 'object' && Object.keys(guarantorData.aadharFront).length === 0) ? undefined : guarantorData.aadharFront);
+    const processedGuarantorAadharBack = uploadedGuarantorAadharBack || ((typeof guarantorData.aadharBack === 'string' && guarantorData.aadharBack?.startsWith('data:image')) 
+      ? saveBase64Image(guarantorData.aadharBack, 'guarantor-aadhar-back') 
+      : (guarantorData.aadharBack && typeof guarantorData.aadharBack === 'object' && Object.keys(guarantorData.aadharBack).length === 0) ? undefined : guarantorData.aadharBack);
+    const processedGuarantorPanFront = uploadedGuarantorPanFront || ((typeof guarantorData.panFront === 'string' && guarantorData.panFront?.startsWith('data:image')) 
+      ? saveBase64Image(guarantorData.panFront, 'guarantor-pan-front') 
+      : (guarantorData.panFront && typeof guarantorData.panFront === 'object' && Object.keys(guarantorData.panFront).length === 0) ? undefined : guarantorData.panFront);
 
     const loanData = {
       loanId,
@@ -78,6 +112,10 @@ export const createLoan = async (req, res) => {
       customerAddress: address,
       customerAadhaar: clientAadharNumber,
       customerPan: clientPanNumber,
+      customerPhoto: processedClientPhoto,
+      aadhaarFrontImage: processedClientAadharFront,
+      aadhaarBackImage: processedClientAadharBack,
+      panFrontImage: processedClientPanFront,
       // Guarantor details
       guarantorName: guarantorData.name,
       guarantorPhone: guarantorData.mobile,
@@ -86,8 +124,13 @@ export const createLoan = async (req, res) => {
       guarantorRelationship: guarantorData.relation,
       guarantorGender: guarantorData.gender,
       guarantorWorkingAddress: guarantorData.workingAddress,
+      guarantorPhoto: processedGuarantorPhoto,
+      guarantorAadhaarImage: processedGuarantorAadharFront,
+      guarantorAadhaarFrontImage: processedGuarantorAadharFront,
+      guarantorAadhaarBackImage: processedGuarantorAadharBack,
+      guarantorPanImage: processedGuarantorPanFront,
       referenceName: guarantorData.referenceName,
-      referenceNumber: guarantorData.referenceNumber,
+      referenceNumber: guarantorData.referenceMobileNumber || guarantorData.referenceNumber,
       // Product details
       productName,
       productCategory,
@@ -172,10 +215,45 @@ export const getAllLoans = async (req, res) => {
       .populate('shopkeeperId', 'fullName username')
       .populate('customerId', 'fullName phoneNumber');
 
+    // Transform loans to include nested guarantor object for frontend compatibility
+    const transformedLoans = loans.map(loan => {
+      const loanObj = loan.toObject();
+      
+      // Ensure id field is available for frontend (some components use 'id' instead of '_id')
+      loanObj.id = loanObj._id.toString();
+      
+      // Create guarantor object from flat fields
+      loanObj.guarantor = {
+        name: loanObj.guarantorName,
+        mobile: loanObj.guarantorPhone,
+        gender: loanObj.guarantorGender,
+        relation: loanObj.guarantorRelationship,
+        workingAddress: loanObj.guarantorWorkingAddress,
+        aadharNumber: loanObj.guarantorAadhaar,
+        referenceName: loanObj.referenceName,
+        referenceMobileNumber: loanObj.referenceNumber,
+        photo: loanObj.guarantorPhoto,
+        aadharFront: loanObj.guarantorAadhaarFrontImage || loanObj.guarantorAadhaarImage,
+        aadharBack: loanObj.guarantorAadhaarBackImage,
+        panFront: loanObj.guarantorPanImage,
+        address: loanObj.guarantorAddress ? {
+          full: loanObj.guarantorAddress
+        } : undefined
+      };
+      
+      // Add client images at root level for easy access
+      loanObj.clientPhoto = loanObj.customerPhoto;
+      loanObj.clientAadharFront = loanObj.aadhaarFrontImage;
+      loanObj.clientAadharBack = loanObj.aadhaarBackImage;
+      loanObj.clientPanFront = loanObj.panFrontImage;
+      
+      return loanObj;
+    });
+
     const count = await Loan.countDocuments(query);
 
     res.json({
-      loans,
+      loans: transformedLoans,
       totalPages: Math.ceil(count / limit),
       currentPage: page,
       total: count,
@@ -199,7 +277,34 @@ export const getLoanById = async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    res.json({ loan });
+    // Transform loan to include nested guarantor object
+    const loanObj = loan.toObject();
+    
+    // Ensure id field is available for frontend
+    loanObj.id = loanObj._id.toString();
+    
+    loanObj.guarantor = {
+      name: loanObj.guarantorName,
+      mobile: loanObj.guarantorPhone,
+      gender: loanObj.guarantorGender,
+      relation: loanObj.guarantorRelationship,
+      workingAddress: loanObj.guarantorWorkingAddress,
+      aadharNumber: loanObj.guarantorAadhaar,
+      referenceName: loanObj.referenceName,
+      referenceMobileNumber: loanObj.referenceNumber,
+      photo: loanObj.guarantorPhoto,
+      aadharFront: loanObj.guarantorAadhaarFrontImage || loanObj.guarantorAadhaarImage,
+      aadharBack: loanObj.guarantorAadhaarBackImage,
+      panFront: loanObj.guarantorPanImage,
+      address: loanObj.guarantorAddress ? { full: loanObj.guarantorAddress } : undefined
+    };
+    
+    loanObj.clientPhoto = loanObj.customerPhoto;
+    loanObj.clientAadharFront = loanObj.aadhaarFrontImage;
+    loanObj.clientAadharBack = loanObj.aadhaarBackImage;
+    loanObj.clientPanFront = loanObj.panFrontImage;
+
+    res.json({ loan: loanObj });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -256,9 +361,30 @@ export const updateLoanStatus = async (req, res) => {
       });
     }
 
+    // Transform loan response to include id field for frontend compatibility
+    const loanObj = loan.toObject();
+    loanObj.id = loanObj._id.toString();
+    
+    // Create guarantor object from flat fields
+    loanObj.guarantor = {
+      name: loanObj.guarantorName,
+      mobile: loanObj.guarantorPhone,
+      gender: loanObj.guarantorGender,
+      relation: loanObj.guarantorRelationship,
+      workingAddress: loanObj.guarantorWorkingAddress,
+      aadharNumber: loanObj.guarantorAadhaar,
+      referenceName: loanObj.referenceName,
+      referenceMobileNumber: loanObj.referenceNumber,
+      photo: loanObj.guarantorPhoto,
+      aadharFront: loanObj.guarantorAadhaarFrontImage || loanObj.guarantorAadhaarImage,
+      aadharBack: loanObj.guarantorAadhaarBackImage,
+      panFront: loanObj.guarantorPanImage,
+      address: loanObj.guarantorAddress ? { full: loanObj.guarantorAddress } : undefined
+    };
+
     res.json({
       message: `Loan status updated to ${status}`,
-      loan,
+      loan: loanObj,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
