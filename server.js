@@ -23,7 +23,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-connectDB();
+connectDB().catch(err => console.error("Database connection failed", err));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
