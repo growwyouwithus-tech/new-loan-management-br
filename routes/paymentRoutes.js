@@ -12,7 +12,7 @@ import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.post('/', authenticate, authorize('collections', 'admin'), createPayment);
+router.post('/', authenticate, authorize('collections', 'admin', 'shopkeeper'), createPayment);
 router.get('/', authenticate, getAllPayments);
 router.get('/statistics', authenticate, authorize('admin', 'collections'), getPaymentStatistics);
 router.get('/loan/:loanId', authenticate, getPaymentsByLoan);
