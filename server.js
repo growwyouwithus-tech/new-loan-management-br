@@ -1,4 +1,5 @@
 import express from 'express';
+import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -69,10 +70,10 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/offers', offerRoutes);
 app.use('/api/users', userRoutes);
 
-app.use(notFound);
+
 app.use(errorHandler);
 
-if (process.env.VERCEL !== '1') {
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   app.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
   });
