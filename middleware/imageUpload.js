@@ -7,7 +7,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Create uploads directory structure
-const uploadDir = path.join(__dirname, '..', 'uploads');
+// On Vercel, use /tmp which is the only writable directory
+const uploadDir = process.env.VERCEL === '1'
+  ? path.join('/tmp', 'uploads')
+  : path.join(__dirname, '..', 'uploads');
 const subdirs = ['documents', 'images', 'temp'];
 
 // Ensure all directories exist
@@ -22,12 +25,12 @@ const subdirs = ['documents', 'images', 'temp'];
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     let subdir = 'documents';
-    
+
     // Categorize by file type
     if (file.mimetype.startsWith('image/')) {
       subdir = 'images';
     }
-    
+
     const destPath = path.join(uploadDir, subdir);
     cb(null, destPath);
   },
@@ -43,33 +46,33 @@ const storage = multer.diskStorage({
 export const saveBase64Image = (base64Data, fieldName) => {
   try {
     console.log(`saveBase64Image called for field: ${fieldName}`);
-    
+
     if (!base64Data || !base64Data.startsWith('data:image')) {
       console.log(`saveBase64Image: Invalid or missing base64 data for ${fieldName}`);
       return null;
     }
-    
+
     // Extract base64 data
     const matches = base64Data.match(/^data:image\/([a-zA-Z]*);base64,(.*)$/);
     if (!matches || matches.length !== 3) {
       console.log(`saveBase64Image: Failed to parse base64 data for ${fieldName}`);
       return null;
     }
-    
+
     const imageType = matches[1];
     const imageData = matches[2];
     const buffer = Buffer.from(imageData, 'base64');
-    
+
     // Generate filename
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const filename = `${fieldName}-${uniqueSuffix}.${imageType}`;
     const filepath = path.join(uploadDir, 'images', filename);
-    
+
     console.log(`saveBase64Image: Saving to ${filepath}`);
-    
+
     // Save file
     fs.writeFileSync(filepath, buffer);
-    
+
     // Return relative path for database storage
     const relativePath = `/uploads/images/${filename}`;
     console.log(`saveBase64Image: Saved successfully, returning path: ${relativePath}`);
@@ -84,11 +87,11 @@ export const saveBase64Image = (base64Data, fieldName) => {
 const fileFilter = (req, file, cb) => {
   const allowedImageTypes = /jpeg|jpg|png|gif|webp/;
   const allowedDocTypes = /pdf|doc|docx/;
-  
+
   const extname = path.extname(file.originalname).toLowerCase();
   const isImage = allowedImageTypes.test(extname.slice(1)) && file.mimetype.startsWith('image/');
   const isDoc = allowedDocTypes.test(extname.slice(1));
-  
+
   if (isImage || isDoc) {
     return cb(null, true);
   } else {
@@ -123,9 +126,9 @@ export const loanDocumentUpload = upload.fields([
 // Helper to process uploaded files and return paths
 export const processUploadedFiles = (files) => {
   const filePaths = {};
-  
+
   if (!files) return filePaths;
-  
+
   Object.keys(files).forEach(fieldName => {
     if (files[fieldName] && files[fieldName][0]) {
       const file = files[fieldName][0];
@@ -133,7 +136,7 @@ export const processUploadedFiles = (files) => {
       filePaths[fieldName] = `/uploads/${file.filename.startsWith('images/') ? '' : 'images/'}${path.basename(file.path)}`;
     }
   });
-  
+
   return filePaths;
 };
 
@@ -141,7 +144,7 @@ export const processUploadedFiles = (files) => {
 export const deleteUploadedFile = (filepath) => {
   try {
     if (!filepath) return;
-    
+
     const fullPath = path.join(__dirname, '..', filepath.replace(/^\//, ''));
     if (fs.existsSync(fullPath)) {
       fs.unlinkSync(fullPath);
