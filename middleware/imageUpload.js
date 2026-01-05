@@ -42,13 +42,17 @@ const storage = multer.diskStorage({
 // Storage for base64 images (from mobile app)
 export const saveBase64Image = (base64Data, fieldName) => {
   try {
+    console.log(`saveBase64Image called for field: ${fieldName}`);
+    
     if (!base64Data || !base64Data.startsWith('data:image')) {
+      console.log(`saveBase64Image: Invalid or missing base64 data for ${fieldName}`);
       return null;
     }
     
     // Extract base64 data
     const matches = base64Data.match(/^data:image\/([a-zA-Z]*);base64,(.*)$/);
     if (!matches || matches.length !== 3) {
+      console.log(`saveBase64Image: Failed to parse base64 data for ${fieldName}`);
       return null;
     }
     
@@ -61,13 +65,17 @@ export const saveBase64Image = (base64Data, fieldName) => {
     const filename = `${fieldName}-${uniqueSuffix}.${imageType}`;
     const filepath = path.join(uploadDir, 'images', filename);
     
+    console.log(`saveBase64Image: Saving to ${filepath}`);
+    
     // Save file
     fs.writeFileSync(filepath, buffer);
     
     // Return relative path for database storage
-    return `/uploads/images/${filename}`;
+    const relativePath = `/uploads/images/${filename}`;
+    console.log(`saveBase64Image: Saved successfully, returning path: ${relativePath}`);
+    return relativePath;
   } catch (error) {
-    console.error('Error saving base64 image:', error);
+    console.error(`Error saving base64 image for ${fieldName}:`, error);
     return null;
   }
 };

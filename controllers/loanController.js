@@ -1,4 +1,5 @@
 import Loan from '../models/Loan.js';
+import Shopkeeper from '../models/Shopkeeper.js';
 import Notification from '../models/Notification.js';
 import Customer from '../models/Customer.js';
 import { saveBase64Image } from '../middleware/imageUpload.js';
@@ -7,7 +8,7 @@ export const createLoan = async (req, res) => {
   try {
     console.log('Creating loan with data:', req.body);
     console.log('User:', req.user);
-    
+
     const {
       clientName,
       clientFatherOrSpouseName,
@@ -54,7 +55,7 @@ export const createLoan = async (req, res) => {
     const loanId = `LN${Date.now().toString().slice(-8)}`;
     const appliedDate = new Date().toISOString().split('T')[0];
     const phone = clientMobile || clientPhone || 'N/A';
-    const address = typeof clientAddress === 'object' 
+    const address = typeof clientAddress === 'object'
       ? `${clientAddress.houseNo || ''}, ${clientAddress.galiNo || ''}, ${clientAddress.colony || ''}, ${clientAddress.city || ''}, ${clientAddress.state || ''} - ${clientAddress.pincode || ''}`
       : clientAddress || 'N/A';
 
@@ -75,7 +76,7 @@ export const createLoan = async (req, res) => {
     const guarantorAddress = typeof guarantorData.address === 'object'
       ? `${guarantorData.address.houseNo || ''}, ${guarantorData.address.galiNo || ''}, ${guarantorData.address.colony || ''}, ${guarantorData.address.city || ''}, ${guarantorData.address.state || ''} - ${guarantorData.address.pincode || ''}`
       : guarantorData.address || '';
-    
+
     // Extract uploaded guarantor file paths from multer
     const uploadedGuarantorPhoto = req.files?.guarantorPhoto?.[0]?.path;
     const uploadedGuarantorAadharFront = req.files?.guarantorAadharFront?.[0]?.path;
@@ -83,17 +84,17 @@ export const createLoan = async (req, res) => {
     const uploadedGuarantorPanFront = req.files?.guarantorPanFront?.[0]?.path;
 
     // Process guarantor images (uploaded files, base64, or convert empty objects to undefined)
-    const processedGuarantorPhoto = uploadedGuarantorPhoto || ((typeof guarantorData.photo === 'string' && guarantorData.photo?.startsWith('data:image')) 
-      ? saveBase64Image(guarantorData.photo, 'guarantor-photo') 
+    const processedGuarantorPhoto = uploadedGuarantorPhoto || ((typeof guarantorData.photo === 'string' && guarantorData.photo?.startsWith('data:image'))
+      ? saveBase64Image(guarantorData.photo, 'guarantor-photo')
       : (guarantorData.photo && typeof guarantorData.photo === 'object' && Object.keys(guarantorData.photo).length === 0) ? undefined : guarantorData.photo);
-    const processedGuarantorAadharFront = uploadedGuarantorAadharFront || ((typeof guarantorData.aadharFront === 'string' && guarantorData.aadharFront?.startsWith('data:image')) 
-      ? saveBase64Image(guarantorData.aadharFront, 'guarantor-aadhar-front') 
+    const processedGuarantorAadharFront = uploadedGuarantorAadharFront || ((typeof guarantorData.aadharFront === 'string' && guarantorData.aadharFront?.startsWith('data:image'))
+      ? saveBase64Image(guarantorData.aadharFront, 'guarantor-aadhar-front')
       : (guarantorData.aadharFront && typeof guarantorData.aadharFront === 'object' && Object.keys(guarantorData.aadharFront).length === 0) ? undefined : guarantorData.aadharFront);
-    const processedGuarantorAadharBack = uploadedGuarantorAadharBack || ((typeof guarantorData.aadharBack === 'string' && guarantorData.aadharBack?.startsWith('data:image')) 
-      ? saveBase64Image(guarantorData.aadharBack, 'guarantor-aadhar-back') 
+    const processedGuarantorAadharBack = uploadedGuarantorAadharBack || ((typeof guarantorData.aadharBack === 'string' && guarantorData.aadharBack?.startsWith('data:image'))
+      ? saveBase64Image(guarantorData.aadharBack, 'guarantor-aadhar-back')
       : (guarantorData.aadharBack && typeof guarantorData.aadharBack === 'object' && Object.keys(guarantorData.aadharBack).length === 0) ? undefined : guarantorData.aadharBack);
-    const processedGuarantorPanFront = uploadedGuarantorPanFront || ((typeof guarantorData.panFront === 'string' && guarantorData.panFront?.startsWith('data:image')) 
-      ? saveBase64Image(guarantorData.panFront, 'guarantor-pan-front') 
+    const processedGuarantorPanFront = uploadedGuarantorPanFront || ((typeof guarantorData.panFront === 'string' && guarantorData.panFront?.startsWith('data:image'))
+      ? saveBase64Image(guarantorData.panFront, 'guarantor-pan-front')
       : (guarantorData.panFront && typeof guarantorData.panFront === 'object' && Object.keys(guarantorData.panFront).length === 0) ? undefined : guarantorData.panFront);
 
     const loanData = {
@@ -159,6 +160,22 @@ export const createLoan = async (req, res) => {
       applicationMode: applicationMode || 'max_born_group',
     };
 
+    // Check and deduct token balance for shopkeepers
+    if (req.user.role === 'shopkeeper') {
+      const shopkeeper = await Shopkeeper.findOne({ userId: req.user._id });
+      if (!shopkeeper) {
+        return res.status(404).json({ message: 'Shopkeeper profile not found' });
+      }
+
+      if (shopkeeper.tokenBalance < 1) {
+        return res.status(400).json({ message: 'Insufficient token balance. Please contact admin to purchase tokens.' });
+      }
+
+      shopkeeper.tokenBalance -= 1;
+      await shopkeeper.save();
+      console.log(`Deducted 1 token from shopkeeper ${shopkeeper.shopName}. New balance: ${shopkeeper.tokenBalance}`);
+    }
+
     console.log('Creating loan with validated data:', loanData);
 
     const loan = await Loan.create(loanData);
@@ -188,7 +205,7 @@ export const createLoan = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating loan:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: error.message,
       error: error.toString(),
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
@@ -218,10 +235,10 @@ export const getAllLoans = async (req, res) => {
     // Transform loans to include nested guarantor object for frontend compatibility
     const transformedLoans = loans.map(loan => {
       const loanObj = loan.toObject();
-      
+
       // Ensure id field is available for frontend (some components use 'id' instead of '_id')
       loanObj.id = loanObj._id.toString();
-      
+
       // Create guarantor object from flat fields
       loanObj.guarantor = {
         name: loanObj.guarantorName,
@@ -240,13 +257,13 @@ export const getAllLoans = async (req, res) => {
           full: loanObj.guarantorAddress
         } : undefined
       };
-      
+
       // Add client images at root level for easy access
       loanObj.clientPhoto = loanObj.customerPhoto;
       loanObj.clientAadharFront = loanObj.aadhaarFrontImage;
       loanObj.clientAadharBack = loanObj.aadhaarBackImage;
       loanObj.clientPanFront = loanObj.panFrontImage;
-      
+
       return loanObj;
     });
 
@@ -279,10 +296,10 @@ export const getLoanById = async (req, res) => {
 
     // Transform loan to include nested guarantor object
     const loanObj = loan.toObject();
-    
+
     // Ensure id field is available for frontend
     loanObj.id = loanObj._id.toString();
-    
+
     loanObj.guarantor = {
       name: loanObj.guarantorName,
       mobile: loanObj.guarantorPhone,
@@ -298,7 +315,7 @@ export const getLoanById = async (req, res) => {
       panFront: loanObj.guarantorPanImage,
       address: loanObj.guarantorAddress ? { full: loanObj.guarantorAddress } : undefined
     };
-    
+
     loanObj.clientPhoto = loanObj.customerPhoto;
     loanObj.clientAadharFront = loanObj.aadhaarFrontImage;
     loanObj.clientAadharBack = loanObj.aadhaarBackImage;
@@ -364,7 +381,7 @@ export const updateLoanStatus = async (req, res) => {
     // Transform loan response to include id field for frontend compatibility
     const loanObj = loan.toObject();
     loanObj.id = loanObj._id.toString();
-    
+
     // Create guarantor object from flat fields
     loanObj.guarantor = {
       name: loanObj.guarantorName,
@@ -402,7 +419,7 @@ export const updateKYCStatus = async (req, res) => {
 
     loan.kycStatus = kycStatus;
     loan.kycVerifiedBy = req.user.role;
-    
+
     if (kycStatus === 'verified') {
       loan.kycVerifiedDate = new Date().toISOString().split('T')[0];
     }
@@ -480,7 +497,7 @@ export const applyPenalty = async (req, res) => {
 
     loan.penalties.push(penalty);
     loan.totalPenalty = (loan.totalPenalty || 0) + amount;
-    
+
     if (loan.status === 'Active') {
       loan.status = 'Overdue';
     }

@@ -5,18 +5,18 @@ import Loan from '../models/Loan.js';
 export const createShopkeeper = async (req, res) => {
   try {
     const { password, ...shopkeeperInfo } = req.body;
-    
+
     // Generate unique shopkeeper ID
     const shopkeeperId = `SK${Date.now().toString().slice(-6)}`;
-    
+
     // Check if shopkeeper with same Aadhar already exists
-    const existingShopkeeper = await Shopkeeper.findOne({ 
-      aadharNumber: shopkeeperInfo.aadharNumber 
+    const existingShopkeeper = await Shopkeeper.findOne({
+      aadharNumber: shopkeeperInfo.aadharNumber
     });
-    
+
     if (existingShopkeeper) {
-      return res.status(400).json({ 
-        message: 'Shopkeeper with this Aadhar number already exists' 
+      return res.status(400).json({
+        message: 'Shopkeeper with this Aadhar number already exists'
       });
     }
 
@@ -24,17 +24,18 @@ export const createShopkeeper = async (req, res) => {
     if (shopkeeperInfo.email) {
       const existingUser = await User.findOne({ email: shopkeeperInfo.email });
       if (existingUser) {
-        return res.status(400).json({ 
-          message: 'User with this email already exists' 
+        return res.status(400).json({
+          message: 'User with this email already exists'
         });
       }
     }
 
     // Create User account for shopkeeper login
+    const actualPassword = password || 'Shop@123';
     const user = await User.create({
       username: shopkeeperInfo.email, // Use email as username for login
       email: shopkeeperInfo.email,
-      password: password || '123456', // Default password if not provided
+      password: actualPassword, // Default password if not provided
       role: 'shopkeeper',
       fullName: shopkeeperInfo.ownerName,
       phoneNumber: shopkeeperInfo.phoneNumber,
@@ -45,6 +46,7 @@ export const createShopkeeper = async (req, res) => {
       ...shopkeeperInfo,
       shopkeeperId,
       userId: user._id,
+      password: actualPassword, // Store password for display
       registrationDate: new Date().toISOString().split('T')[0],
     };
 
@@ -54,7 +56,7 @@ export const createShopkeeper = async (req, res) => {
       message: 'Shopkeeper registered successfully',
       shopkeeper: {
         ...shopkeeper.toObject(),
-        password: password || '123456', // Return password for admin to see
+        password: actualPassword, // Return password for admin to see
       },
     });
   } catch (error) {
@@ -67,6 +69,11 @@ export const getAllShopkeepers = async (req, res) => {
     const { page = 1, limit = 50, kycStatus } = req.query;
     const query = {};
 
+    // If user is a shopkeeper, only return their own record
+    if (req.user.role === 'shopkeeper') {
+      query.userId = req.user._id;
+    }
+
     if (kycStatus) {
       query.kycStatus = kycStatus;
     }
@@ -75,7 +82,7 @@ export const getAllShopkeepers = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
-      .populate('userId', 'fullName username email phoneNumber password')
+      .populate('userId')
       .populate('verifiedBy', 'fullName username')
       .populate('loans');
 
@@ -87,6 +94,9 @@ export const getAllShopkeepers = async (req, res) => {
         shopkeeper: shopkeeper._id,
         status: { $in: ['active', 'approved', 'disbursed'] }
       });
+
+      // Password is stored in shopkeeper document for display purposes
+      let displayPassword = shopkeeper.password || 'Shop@123';
 
       return {
         id: shopkeeper._id,
@@ -103,19 +113,21 @@ export const getAllShopkeepers = async (req, res) => {
         aadharNumber: shopkeeper.aadharNumber,
         address: shopkeeper.address,
         city: shopkeeper.city,
+        kycStatus: shopkeeper.kycStatus,
         state: shopkeeper.state,
         pincode: shopkeeper.pincode,
         gstNumber: shopkeeper.gstNumber,
         panNumber: shopkeeper.panNumber,
         ownerPhoto: shopkeeper.ownerPhoto,
         shopImage: shopkeeper.shopImage,
-        creditLimit: shopkeeper.creditLimit || 0,
-        kycStatus: shopkeeper.kycStatus,
+        tokenBalance: shopkeeper.tokenBalance || 0,
+
+
         status: shopkeeper.userId?.isActive ? 'active' : 'inactive',
         activeLoans: activeLoansCount,
         totalLoans: shopkeeper.loans?.length || 0,
         registrationDate: shopkeeper.registrationDate,
-        password: '123456', // Default password for display
+        password: displayPassword, // Return actual stored password
         createdAt: shopkeeper.createdAt,
         updatedAt: shopkeeper.updatedAt,
       };
@@ -195,7 +207,7 @@ export const updateShopkeeperKYC = async (req, res) => {
 
     shopkeeper.kycStatus = kycStatus;
     shopkeeper.verifiedBy = req.user._id;
-    
+
     if (kycStatus === 'verified') {
       shopkeeper.verifiedDate = new Date();
     } else if (kycStatus === 'rejected') {

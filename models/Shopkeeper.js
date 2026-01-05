@@ -53,6 +53,9 @@ const shopkeeperSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  password: {
+    type: String,
+  },
   ownerPhoto: {
     type: String,
   },
@@ -60,6 +63,10 @@ const shopkeeperSchema = new mongoose.Schema({
     type: String,
   },
   creditLimit: {
+    type: Number,
+    default: 0,
+  },
+  tokenBalance: {
     type: Number,
     default: 0,
   },

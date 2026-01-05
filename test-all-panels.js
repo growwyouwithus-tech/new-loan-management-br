@@ -5,15 +5,15 @@ const API_URL = 'http://localhost:5000/api';
 const testAllPanels = async () => {
   console.log('🔍 Testing All Panels Database Connection\n');
   console.log('='.repeat(50));
-  
+
   const testUsers = [
     { name: 'Admin', email: 'admin@loanmanagement.com', password: 'admin123', role: 'admin' },
-    { name: 'Verifier', email: 'verifier@loanmanagement.com', password: 'verifier123', role: 'verifier' },
-    { name: 'Collections', email: 'collections@loanmanagement.com', password: 'collections123', role: 'collections' },
-    { name: 'Supporter', email: 'supporter@loanmanagement.com', password: 'supporter123', role: 'supporter' },
-    { name: 'Credit Manager', email: 'creditmanager@loanmanagement.com', password: 'credit123', role: 'credit_manager' },
-    { name: 'Shopkeeper 1', email: 'shopkeeper1@example.com', password: 'shop123', role: 'shopkeeper' },
-    { name: 'Shopkeeper 2', email: 'shopkeeper2@example.com', password: 'shop123', role: 'shopkeeper' },
+    { name: 'Verifier', email: 'verifier@loanmanagement.com', password: '123456', role: 'verifier' },
+    { name: 'Collections', email: 'collections@loanmanagement.com', password: '123456', role: 'collections' },
+    { name: 'Supporter', email: 'supporter@loanmanagement.com', password: '123456', role: 'supporter' },
+    { name: 'Credit Manager', email: 'creditmanager@loanmanagement.com', password: '123456', role: 'credit_manager' },
+    { name: 'Shopkeeper 1', email: 'shopkeeper1@example.com', password: '123456', role: 'shopkeeper' },
+    { name: 'Shopkeeper 2', email: 'shopkeeper2@example.com', password: '123456', role: 'shopkeeper' },
   ];
 
   const results = {
@@ -25,7 +25,7 @@ const testAllPanels = async () => {
   for (const user of testUsers) {
     console.log(`\n📋 Testing ${user.name} Panel...`);
     console.log(`   Email: ${user.email}`);
-    
+
     try {
       // Test Login
       const loginResponse = await axios.post(`${API_URL}/auth/login`, {
@@ -38,16 +38,16 @@ const testAllPanels = async () => {
         console.log(`   👤 User: ${loginResponse.data.user.fullName}`);
         console.log(`   🔑 Role: ${loginResponse.data.user.role}`);
         console.log(`   🎫 Token: ${loginResponse.data.accessToken.substring(0, 30)}...`);
-        
+
         const token = loginResponse.data.accessToken;
-        
+
         // Test Profile API
         try {
           const profileResponse = await axios.get(`${API_URL}/auth/profile`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           console.log(`   ✅ Profile API: SUCCESS`);
-          
+
           results.passed++;
           results.details.push({
             panel: user.name,
@@ -69,15 +69,15 @@ const testAllPanels = async () => {
             profileAPI: 'FAILED'
           });
         }
-        
+
       } else {
         throw new Error('No token received');
       }
-      
+
     } catch (error) {
       console.log(`   ❌ Login: FAILED`);
       console.log(`   Error: ${error.response?.data?.message || error.message}`);
-      
+
       results.failed++;
       results.details.push({
         panel: user.name,
@@ -119,7 +119,7 @@ const testAllPanels = async () => {
   console.log('='.repeat(50));
   console.log('🗄️  DATABASE CONNECTION STATUS');
   console.log('='.repeat(50));
-  
+
   if (results.passed === testUsers.length) {
     console.log('✅ All panels properly connected to database');
     console.log('✅ MongoDB Atlas connection working');
@@ -133,7 +133,7 @@ const testAllPanels = async () => {
     console.log('❌ Database connection issues detected');
     console.log('❌ No panels can connect');
   }
-  
+
   console.log('='.repeat(50));
   console.log('');
 };

@@ -35,7 +35,7 @@ router.get('/statistics', authenticate, getLoanStatistics);
 router.get('/:id', authenticate, getLoanById);
 router.put('/:id/status', authenticate, authorize('admin', 'verifier'), updateLoanStatus);
 router.put('/:id/kyc', authenticate, authorize('admin', 'verifier'), updateKYCStatus);
-router.post('/:id/payment', authenticate, authorize('collections', 'admin'), collectPayment);
+router.post('/:id/payment', authenticate, authorize('shopkeeper', 'collections', 'admin'), collectPayment);
 router.post('/:id/penalty', authenticate, authorize('collections', 'admin'), applyPenalty);
 router.put('/:id/due-date', authenticate, authorize('admin', 'collections'), setNextDueDate);
 router.delete('/:id', authenticate, authorize('admin', 'shopkeeper'), deleteLoan);

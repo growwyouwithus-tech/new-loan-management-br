@@ -6,8 +6,8 @@ export const createUser = async (req, res) => {
 
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
-      return res.status(400).json({ 
-        message: 'User with this email or username already exists' 
+      return res.status(400).json({
+        message: 'User with this email or username already exists'
       });
     }
 
@@ -61,7 +61,7 @@ export const getUserById = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const { fullName, phoneNumber, role, isActive, password } = req.body;
-    
+
     const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -97,6 +97,11 @@ export const deleteUser = async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Prevent deletion of admin users
+    if (user.role === 'admin') {
+      return res.status(403).json({ message: 'Admin users cannot be deleted' });
     }
 
     await user.deleteOne();

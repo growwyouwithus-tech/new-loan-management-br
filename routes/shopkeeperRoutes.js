@@ -13,7 +13,7 @@ import { authenticate, authorize } from '../middleware/auth.js';
 const router = express.Router();
 
 router.post('/', authenticate, authorize('shopkeeper', 'admin'), createShopkeeper);
-router.get('/', authenticate, authorize('admin', 'verifier'), getAllShopkeepers);
+router.get('/', authenticate, authorize('admin', 'verifier', 'shopkeeper'), getAllShopkeepers);
 router.get('/statistics', authenticate, authorize('admin'), getShopkeeperStatistics);
 router.get('/:id', authenticate, getShopkeeperById);
 router.put('/:id', authenticate, authorize('admin', 'shopkeeper'), updateShopkeeper);
