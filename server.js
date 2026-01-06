@@ -31,7 +31,9 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.',
 });
 
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 app.use(cors({
   origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173', 'http://localhost:5174'],
   credentials: true,
