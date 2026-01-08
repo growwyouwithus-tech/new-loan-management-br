@@ -2,6 +2,7 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import cloudinary, { shouldUseCloudinary } from '../config/cloudinaryConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -58,7 +59,7 @@ const storage = multer.diskStorage({
 });
 
 // Storage for base64 images (from mobile app)
-export const saveBase64Image = (base64Data, fieldName) => {
+export const saveBase64Image = async (base64Data, fieldName) => {
   try {
     // Ensure directories exist before saving
     ensureDirectories();
@@ -70,6 +71,31 @@ export const saveBase64Image = (base64Data, fieldName) => {
       return null;
     }
 
+    // Upload to Cloudinary if configured
+    if (shouldUseCloudinary()) {
+      try {
+        console.log(`Uploading ${fieldName} to Cloudinary...`);
+
+        const uploadResult = await cloudinary.uploader.upload(base64Data, {
+          folder: 'loan-management',
+          resource_type: 'image',
+          public_id: `${fieldName}-${Date.now()}`,
+          transformation: [
+            { width: 1200, height: 1200, crop: 'limit' },
+            { quality: 'auto:good' }
+          ]
+        });
+
+        console.log(`✓ Uploaded to Cloudinary: ${uploadResult.secure_url}`);
+        return uploadResult.secure_url;
+      } catch (cloudinaryError) {
+        console.error(`Cloudinary upload failed for ${fieldName}:`, cloudinaryError.message);
+        console.log('Falling back to local storage...');
+        // Fall through to local storage
+      }
+    }
+
+    // Local storage fallback
     // Extract base64 data
     const matches = base64Data.match(/^data:image\/([a-zA-Z]*);base64,(.*)$/);
     if (!matches || matches.length !== 3) {
@@ -86,7 +112,7 @@ export const saveBase64Image = (base64Data, fieldName) => {
     const filename = `${fieldName}-${uniqueSuffix}.${imageType}`;
     const filepath = path.join(uploadDir, 'images', filename);
 
-    console.log(`saveBase64Image: Saving to ${filepath}`);
+    console.log(`saveBase64Image: Saving to local storage: ${filepath}`);
 
     // Save file
     fs.writeFileSync(filepath, buffer);
@@ -98,6 +124,42 @@ export const saveBase64Image = (base64Data, fieldName) => {
   } catch (error) {
     console.error(`Error saving base64 image for ${fieldName}:`, error);
     return null;
+  }
+};
+
+// Upload file to Cloudinary from local path
+export const uploadFileToCloudinary = async (filePath, fieldName) => {
+  try {
+    if (!shouldUseCloudinary()) {
+      return null; // Return null if Cloudinary not configured
+    }
+
+    console.log(`Uploading ${fieldName} file to Cloudinary from: ${filePath}`);
+
+    const uploadResult = await cloudinary.uploader.upload(filePath, {
+      folder: 'loan-management',
+      resource_type: 'image',
+      public_id: `${fieldName}-${Date.now()}`,
+      transformation: [
+        { width: 1200, height: 1200, crop: 'limit' },
+        { quality: 'auto:good' }
+      ]
+    });
+
+    console.log(`✓ Uploaded to Cloudinary: ${uploadResult.secure_url}`);
+
+    // Delete local file after successful upload
+    try {
+      fs.unlinkSync(filePath);
+      console.log(`Deleted local file: ${filePath}`);
+    } catch (deleteError) {
+      console.warn(`Could not delete local file: ${filePath}`, deleteError.message);
+    }
+
+    return uploadResult.secure_url;
+  } catch (error) {
+    console.error(`Cloudinary upload failed for ${fieldName}:`, error.message);
+    return null; // Return null on failure, will use local path
   }
 };
 
@@ -141,19 +203,30 @@ export const loanDocumentUpload = upload.fields([
   { name: 'paymentProof', maxCount: 1 },
 ]);
 
-// Helper to process uploaded files and return paths
-export const processUploadedFiles = (files) => {
+// Helper to process uploaded files and upload to Cloudinary if configured
+export const processUploadedFiles = async (files) => {
   const filePaths = {};
 
   if (!files) return filePaths;
 
-  Object.keys(files).forEach(fieldName => {
+  // Process each uploaded file
+  for (const fieldName of Object.keys(files)) {
     if (files[fieldName] && files[fieldName][0]) {
       const file = files[fieldName][0];
-      // Store relative path for serving via express.static
-      filePaths[fieldName] = `/uploads/${file.filename.startsWith('images/') ? '' : 'images/'}${path.basename(file.path)}`;
+      const localPath = file.path;
+
+      // Try to upload to Cloudinary
+      const cloudinaryUrl = await uploadFileToCloudinary(localPath, fieldName);
+
+      if (cloudinaryUrl) {
+        // Use Cloudinary URL
+        filePaths[fieldName] = cloudinaryUrl;
+      } else {
+        // Use local path as fallback
+        filePaths[fieldName] = `/uploads/${file.filename.startsWith('images/') ? '' : 'images/'}${path.basename(file.path)}`;
+      }
     }
-  });
+  }
 
   return filePaths;
 };
@@ -162,6 +235,11 @@ export const processUploadedFiles = (files) => {
 export const deleteUploadedFile = (filepath) => {
   try {
     if (!filepath) return;
+
+    // Don't delete Cloudinary URLs
+    if (filepath.startsWith('http://') || filepath.startsWith('https://')) {
+      return;
+    }
 
     const fullPath = path.join(__dirname, '..', filepath.replace(/^\//, ''));
     if (fs.existsSync(fullPath)) {

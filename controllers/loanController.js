@@ -2,7 +2,7 @@ import Loan from '../models/Loan.js';
 import Shopkeeper from '../models/Shopkeeper.js';
 import Notification from '../models/Notification.js';
 import Customer from '../models/Customer.js';
-import { saveBase64Image } from '../middleware/imageUpload.js';
+import { saveBase64Image, processUploadedFiles } from '../middleware/imageUpload.js';
 
 export const createLoan = async (req, res) => {
   try {
@@ -59,17 +59,20 @@ export const createLoan = async (req, res) => {
       ? `${clientAddress.houseNo || ''}, ${clientAddress.galiNo || ''}, ${clientAddress.colony || ''}, ${clientAddress.city || ''}, ${clientAddress.state || ''} - ${clientAddress.pincode || ''}`
       : clientAddress || 'N/A';
 
+    // Process uploaded files (multer) - upload to Cloudinary if configured
+    const uploadedFiles = await processUploadedFiles(req.files);
+
     // Extract uploaded file paths from multer (if files uploaded via form-data)
-    const uploadedClientPhoto = req.files?.clientPhoto?.[0]?.path;
-    const uploadedClientAadharFront = req.files?.clientAadharFront?.[0]?.path;
-    const uploadedClientAadharBack = req.files?.clientAadharBack?.[0]?.path;
-    const uploadedClientPanFront = req.files?.clientPanFront?.[0]?.path;
+    const uploadedClientPhoto = uploadedFiles.clientPhoto;
+    const uploadedClientAadharFront = uploadedFiles.clientAadharFront;
+    const uploadedClientAadharBack = uploadedFiles.clientAadharBack;
+    const uploadedClientPanFront = uploadedFiles.clientPanFront;
 
     // Process base64 images if present (from mobile app) or use uploaded file paths
-    const processedClientPhoto = uploadedClientPhoto || ((typeof clientPhoto === 'string' && clientPhoto?.startsWith('data:image')) ? saveBase64Image(clientPhoto, 'client-photo') : clientPhoto);
-    const processedClientAadharFront = uploadedClientAadharFront || ((typeof clientAadharFront === 'string' && clientAadharFront?.startsWith('data:image')) ? saveBase64Image(clientAadharFront, 'client-aadhar-front') : clientAadharFront);
-    const processedClientAadharBack = uploadedClientAadharBack || ((typeof clientAadharBack === 'string' && clientAadharBack?.startsWith('data:image')) ? saveBase64Image(clientAadharBack, 'client-aadhar-back') : clientAadharBack);
-    const processedClientPanFront = uploadedClientPanFront || ((typeof clientPanFront === 'string' && clientPanFront?.startsWith('data:image')) ? saveBase64Image(clientPanFront, 'client-pan-front') : clientPanFront);
+    const processedClientPhoto = uploadedClientPhoto || ((typeof clientPhoto === 'string' && clientPhoto?.startsWith('data:image')) ? await saveBase64Image(clientPhoto, 'client-photo') : clientPhoto);
+    const processedClientAadharFront = uploadedClientAadharFront || ((typeof clientAadharFront === 'string' && clientAadharFront?.startsWith('data:image')) ? await saveBase64Image(clientAadharFront, 'client-aadhar-front') : clientAadharFront);
+    const processedClientAadharBack = uploadedClientAadharBack || ((typeof clientAadharBack === 'string' && clientAadharBack?.startsWith('data:image')) ? await saveBase64Image(clientAadharBack, 'client-aadhar-back') : clientAadharBack);
+    const processedClientPanFront = uploadedClientPanFront || ((typeof clientPanFront === 'string' && clientPanFront?.startsWith('data:image')) ? await saveBase64Image(clientPanFront, 'client-pan-front') : clientPanFront);
 
     // Extract guarantor details
     const guarantorData = guarantor || {};
@@ -78,23 +81,23 @@ export const createLoan = async (req, res) => {
       : guarantorData.address || '';
 
     // Extract uploaded guarantor file paths from multer
-    const uploadedGuarantorPhoto = req.files?.guarantorPhoto?.[0]?.path;
-    const uploadedGuarantorAadharFront = req.files?.guarantorAadharFront?.[0]?.path;
-    const uploadedGuarantorAadharBack = req.files?.guarantorAadharBack?.[0]?.path;
-    const uploadedGuarantorPanFront = req.files?.guarantorPanFront?.[0]?.path;
+    const uploadedGuarantorPhoto = uploadedFiles.guarantorPhoto;
+    const uploadedGuarantorAadharFront = uploadedFiles.guarantorAadharFront;
+    const uploadedGuarantorAadharBack = uploadedFiles.guarantorAadharBack;
+    const uploadedGuarantorPanFront = uploadedFiles.guarantorPanFront;
 
     // Process guarantor images (uploaded files, base64, or convert empty objects to undefined)
     const processedGuarantorPhoto = uploadedGuarantorPhoto || ((typeof guarantorData.photo === 'string' && guarantorData.photo?.startsWith('data:image'))
-      ? saveBase64Image(guarantorData.photo, 'guarantor-photo')
+      ? await saveBase64Image(guarantorData.photo, 'guarantor-photo')
       : (guarantorData.photo && typeof guarantorData.photo === 'object' && Object.keys(guarantorData.photo).length === 0) ? undefined : guarantorData.photo);
     const processedGuarantorAadharFront = uploadedGuarantorAadharFront || ((typeof guarantorData.aadharFront === 'string' && guarantorData.aadharFront?.startsWith('data:image'))
-      ? saveBase64Image(guarantorData.aadharFront, 'guarantor-aadhar-front')
+      ? await saveBase64Image(guarantorData.aadharFront, 'guarantor-aadhar-front')
       : (guarantorData.aadharFront && typeof guarantorData.aadharFront === 'object' && Object.keys(guarantorData.aadharFront).length === 0) ? undefined : guarantorData.aadharFront);
     const processedGuarantorAadharBack = uploadedGuarantorAadharBack || ((typeof guarantorData.aadharBack === 'string' && guarantorData.aadharBack?.startsWith('data:image'))
-      ? saveBase64Image(guarantorData.aadharBack, 'guarantor-aadhar-back')
+      ? await saveBase64Image(guarantorData.aadharBack, 'guarantor-aadhar-back')
       : (guarantorData.aadharBack && typeof guarantorData.aadharBack === 'object' && Object.keys(guarantorData.aadharBack).length === 0) ? undefined : guarantorData.aadharBack);
     const processedGuarantorPanFront = uploadedGuarantorPanFront || ((typeof guarantorData.panFront === 'string' && guarantorData.panFront?.startsWith('data:image'))
-      ? saveBase64Image(guarantorData.panFront, 'guarantor-pan-front')
+      ? await saveBase64Image(guarantorData.panFront, 'guarantor-pan-front')
       : (guarantorData.panFront && typeof guarantorData.panFront === 'object' && Object.keys(guarantorData.panFront).length === 0) ? undefined : guarantorData.panFront);
 
     const loanData = {
