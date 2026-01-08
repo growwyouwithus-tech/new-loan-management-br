@@ -13,17 +13,32 @@ const uploadDir = process.env.VERCEL === '1'
   : path.join(__dirname, '..', 'uploads');
 const subdirs = ['documents', 'images', 'temp'];
 
-// Ensure all directories exist
-[uploadDir, ...subdirs.map(d => path.join(uploadDir, d))].forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    console.log(`Created directory: ${dir}`);
+// Lazy directory initialization to prevent serverless cold start failures
+let directoriesInitialized = false;
+
+const ensureDirectories = () => {
+  if (directoriesInitialized) return;
+
+  try {
+    [uploadDir, ...subdirs.map(d => path.join(uploadDir, d))].forEach(dir => {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        console.log(`Created directory: ${dir}`);
+      }
+    });
+    directoriesInitialized = true;
+  } catch (error) {
+    console.error('Failed to create upload directories:', error);
+    // Don't throw - allow app to start even if uploads won't work immediately
   }
-});
+};
 
 // Storage configuration for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
+    // Ensure directories exist before upload
+    ensureDirectories();
+
     let subdir = 'documents';
 
     // Categorize by file type
@@ -45,6 +60,9 @@ const storage = multer.diskStorage({
 // Storage for base64 images (from mobile app)
 export const saveBase64Image = (base64Data, fieldName) => {
   try {
+    // Ensure directories exist before saving
+    ensureDirectories();
+
     console.log(`saveBase64Image called for field: ${fieldName}`);
 
     if (!base64Data || !base64Data.startsWith('data:image')) {
