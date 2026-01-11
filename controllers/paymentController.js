@@ -50,6 +50,12 @@ export const getAllPayments = async (req, res) => {
 
     if (loanId) query.loanId = loanId;
     if (status) query.status = status;
+    if (req.query.startDate && req.query.endDate) {
+      query.paymentDate = {
+        $gte: req.query.startDate,
+        $lte: req.query.endDate
+      };
+    }
 
     const payments = await Payment.find(query)
       .sort({ createdAt: -1 })
@@ -147,10 +153,10 @@ export const getPaymentStatistics = async (req, res) => {
     }
 
     const payments = await Payment.find(query);
-    
+
     const totalPayments = payments.length;
     const totalAmount = payments.reduce((sum, payment) => sum + payment.amount, 0);
-    
+
     const paymentsByMode = payments.reduce((acc, payment) => {
       acc[payment.paymentMode] = (acc[payment.paymentMode] || 0) + 1;
       return acc;
