@@ -447,7 +447,7 @@ export const collectPayment = async (req, res) => {
       return res.status(404).json({ message: 'Loan not found' });
     }
 
-    if (loan.status !== 'Active' && loan.status !== 'Overdue' && loan.status !== 'Approved') {
+    if (loan.status !== 'Active' && loan.status !== 'Overdue' && loan.status !== 'Approved' && loan.status !== 'Verified') {
       return res.status(400).json({ message: 'Loan is not active for payment collection' });
     }
 
