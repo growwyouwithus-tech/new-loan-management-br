@@ -43,6 +43,10 @@ const paymentSchema = new mongoose.Schema({
   transactionId: {
     type: String,
   },
+  penalty: {
+    type: Number,
+    default: 0,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
