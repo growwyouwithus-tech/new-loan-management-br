@@ -1,5 +1,8 @@
+import connectDB from '../config/database.js';
+
 export default async function handler(req, res) {
     try {
+        await connectDB();
         // Dynamically import the app to catch top-level errors in server.js
         const module = await import('../server.js');
         const app = module.default;
