@@ -235,12 +235,31 @@ export const getAllLoans = async (req, res) => {
       .populate('shopkeeperId', 'fullName username')
       .populate('customerId', 'fullName phoneNumber');
 
-    // Transform loans to include nested guarantor object for frontend compatibility
+    // Get all unique user IDs from the fetched loans to find their shopkeeper profiles
+    const userIds = [...new Set(loans.map(loan => loan.shopkeeperId?._id))].filter(id => id);
+
+    // Fetch shopkeeper profiles for these users
+    const shopkeepers = await Shopkeeper.find({ userId: { $in: userIds } }).select('userId shopName');
+
+    // Create a map of userId -> shopName
+    const shopMap = {};
+    shopkeepers.forEach(shop => {
+      shopMap[shop.userId.toString()] = shop.shopName;
+    });
+
+    // Transform loans to include nested guarantor object for frontend compatibility and shopName
     const transformedLoans = loans.map(loan => {
       const loanObj = loan.toObject();
 
       // Ensure id field is available for frontend (some components use 'id' instead of '_id')
       loanObj.id = loanObj._id.toString();
+
+      // Attach shopName
+      if (loanObj.shopkeeperId && loanObj.shopkeeperId._id) {
+        loanObj.shopName = shopMap[loanObj.shopkeeperId._id.toString()] || 'N/A';
+      } else {
+        loanObj.shopName = 'N/A';
+      }
 
       // Create guarantor object from flat fields
       loanObj.guarantor = {
@@ -302,6 +321,14 @@ export const getLoanById = async (req, res) => {
 
     // Ensure id field is available for frontend
     loanObj.id = loanObj._id.toString();
+
+    // Fetch shopkeeper details to get shopName
+    if (loan.shopkeeperId) {
+      const shopkeeper = await Shopkeeper.findOne({ userId: loan.shopkeeperId._id }).select('shopName');
+      loanObj.shopName = shopkeeper ? shopkeeper.shopName : 'N/A';
+    } else {
+      loanObj.shopName = 'N/A';
+    }
 
     loanObj.guarantor = {
       name: loanObj.guarantorName,
