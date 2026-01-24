@@ -23,7 +23,7 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-connectDB().catch(err => console.error("Database connection failed", err));
+// connectDB call moved to startup block
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -83,9 +83,16 @@ app.use('/api/users', userRoutes);
 app.use(errorHandler);
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  app.listen(PORT, () => {
-    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-  });
+  connectDB()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+      });
+    })
+    .catch((err) => {
+      console.error("Database connection failed", err);
+      process.exit(1);
+    });
 }
 
 export default app;
