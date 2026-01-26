@@ -568,41 +568,117 @@ export const getLoanStatistics = async (req, res) => {
   try {
     const query = req.user.role === 'shopkeeper' ? { shopkeeperId: req.user._id } : {};
 
-    const [
-      totalLoans,
-      pendingLoans,
-      verifiedLoans,
-      approvedLoans,
-      activeLoans,
-      overdueLoans,
-      completedLoans,
-      rejectedLoans,
-    ] = await Promise.all([
-      Loan.countDocuments(query),
-      Loan.countDocuments({ ...query, status: 'Pending' }),
-      Loan.countDocuments({ ...query, status: 'Verified' }),
-      Loan.countDocuments({ ...query, status: 'Approved' }),
-      Loan.countDocuments({ ...query, status: 'Active' }),
-      Loan.countDocuments({ ...query, status: 'Overdue' }),
-      Loan.countDocuments({ ...query, status: 'Paid' }),
-      Loan.countDocuments({ ...query, status: 'Rejected' }),
+    const stats = await Loan.aggregate([
+      { $match: query },
+      {
+        $facet: {
+          counts: [
+            {
+              $group: {
+                _id: null,
+                totalLoans: { $sum: 1 },
+                pendingLoans: { $sum: { $cond: [{ $eq: ["$status", "Pending"] }, 1, 0] } },
+                verifiedLoans: { $sum: { $cond: [{ $eq: ["$status", "Verified"] }, 1, 0] } },
+                approvedLoans: { $sum: { $cond: [{ $eq: ["$status", "Approved"] }, 1, 0] } },
+                activeLoans: { $sum: { $cond: [{ $eq: ["$status", "Active"] }, 1, 0] } },
+                overdueLoans: { $sum: { $cond: [{ $eq: ["$status", "Overdue"] }, 1, 0] } },
+                completedLoans: { $sum: { $cond: [{ $eq: ["$status", "Paid"] }, 1, 0] } },
+                rejectedLoans: { $sum: { $cond: [{ $eq: ["$status", "Rejected"] }, 1, 0] } },
+                kycPending: { $sum: { $cond: [{ $and: [{ $ne: ["$kycStatus", "verified"] }, { $ne: ["$kycStatus", "rejected"] }] }, 1, 0] } }
+              }
+            }
+          ],
+          financials: [
+            {
+              $group: {
+                _id: null,
+                // Total Disbursed: Sum of loan amounts for loans that are Active, Overdue, or Paid
+                totalDisbursed: {
+                  $sum: {
+                    $cond: [
+                      { $in: ["$status", ["Active", "Overdue", "Paid"]] },
+                      "$loanAmount",
+                      0
+                    ]
+                  }
+                },
+                // Total Penalties
+                totalPenalties: { $sum: "$totalPenalty" },
+                // Total Overdue Amount: (EMIs Remaining * EMI Amount) + Total Penalty for Overdue loans
+                overdueAmount: {
+                  $sum: {
+                    $cond: [
+                      { $eq: ["$status", "Overdue"] },
+                      { $add: [{ $multiply: ["$emisRemaining", "$emiAmount"] }, { $ifNull: ["$totalPenalty", 0] }] },
+                      0
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          payments: [
+            { $unwind: "$payments" },
+            {
+              $group: {
+                _id: null,
+                totalCollected: { $sum: "$payments.amount" }
+              }
+            }
+          ],
+          // Last 7 days disbursements
+          disbursementsTrend: [
+            {
+              $match: {
+                status: { $in: ["Active", "Overdue", "Paid"] },
+                // Use approvedDate or verifiedDate as a proxy for disbursement date if no specific field
+                approvedDate: { $type: "string" }
+              }
+            },
+            // Note: In a real app, you'd want a specific disbursementDate date object. 
+            // Here we'll try to use approvedDate. Assuming format YYYY-MM-DD
+            {
+              $group: {
+                _id: "$approvedDate",
+                amount: { $sum: "$loanAmount" }
+              }
+            },
+            { $sort: { _id: 1 } },
+            { $limit: 7 }
+          ],
+          // Last 7 days collections
+          collectionsTrend: [
+            { $unwind: "$payments" },
+            {
+              $group: {
+                _id: "$payments.paymentDate",
+                amount: { $sum: "$payments.amount" }
+              }
+            },
+            { $sort: { _id: 1 } },
+            { $limit: 7 }
+          ]
+        }
+      }
     ]);
 
-    const loans = await Loan.find(query);
-    const totalPenalties = loans.reduce((sum, loan) => sum + (loan.totalPenalty || 0), 0);
+    const result = stats[0];
+    const counts = result.counts[0] || {
+      totalLoans: 0, pendingLoans: 0, verifiedLoans: 0, approvedLoans: 0,
+      activeLoans: 0, overdueLoans: 0, completedLoans: 0, rejectedLoans: 0, kycPending: 0
+    };
+    const financials = result.financials[0] || { totalDisbursed: 0, totalPenalties: 0, overdueAmount: 0 };
+    const payments = result.payments[0] || { totalCollected: 0 };
 
     res.json({
-      totalLoans,
-      pendingLoans,
-      verifiedLoans,
-      approvedLoans,
-      activeLoans,
-      overdueLoans,
-      completedLoans,
-      rejectedLoans,
-      totalPenalties,
+      ...counts,
+      ...financials,
+      ...payments,
+      disbursementsTrend: result.disbursementsTrend,
+      collectionsTrend: result.collectionsTrend
     });
   } catch (error) {
+    console.error('Error fetching loan statistics:', error);
     res.status(500).json({ message: error.message });
   }
 };
